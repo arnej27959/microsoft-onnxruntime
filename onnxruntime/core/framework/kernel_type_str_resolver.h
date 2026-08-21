@@ -28,7 +28,11 @@ struct KernelTypeStrResolver;
 
 using ArgTypeAndIndex = std::pair<ArgType, size_t>;
 using KernelTypeStrToArgsMap = InlinedHashMap<std::string, InlinedVector<ArgTypeAndIndex>>;
-using OpKernelTypeStrMap = InlinedHashMap<OpIdentifier, KernelTypeStrToArgsMap>;
+// NodeHashMap, not InlinedHashMap: ResolveKernelTypeStr() hands back a span over the InlinedVector held
+// in one of this map's entries, and callers keep using it after the call returns. A flat map would move
+// that storage when a later registration rehashes it, leaving the span dangling. The values of a node
+// based map stay put, so a span remains valid for as long as its entry does.
+using OpKernelTypeStrMap = NodeHashMap<OpIdentifier, KernelTypeStrToArgsMap>;
 
 /**
  * This class interface provides a way to resolve an op's kernel type string to its associated arguments.
@@ -42,7 +46,8 @@ class IKernelTypeStrResolver {
    * Resolves an op's kernel type string to its associated arguments.
    * @param node The op's node.
    * @param kernel_type_str The op kernel type string.
-   * @param[out] resolved_args The op arguments associated with kernel_type_str.
+   * @param[out] resolved_args The op arguments associated with kernel_type_str. This refers to storage
+   *             owned by the resolver and stays valid for as long as the resolver holds that op's entry.
    */
   virtual Status ResolveKernelTypeStr(const Node& node, std::string_view kernel_type_str,
                                       gsl::span<const ArgTypeAndIndex>& resolved_args) const = 0;
