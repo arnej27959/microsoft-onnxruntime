@@ -68,7 +68,8 @@ class SequenceConstruct final : public CudaKernel {
       const auto* source_tensor = context->Input<Tensor>(input_idx);
 
       std::unique_ptr<Tensor> target_tensor = Tensor::Create(source_tensor->DataType(),
-                                                             source_tensor->Shape(), alloc);
+                                                             source_tensor->Shape(), alloc,
+                                                             GetComputeStream(context));
 
       CUDA_RETURN_IF_ERROR(cudaMemcpyAsync(target_tensor->MutableDataRaw(),
                                            source_tensor->DataRaw(),
@@ -195,7 +196,8 @@ class SequenceErase final : public CudaKernel {
       }
       const Tensor& source_tensor = X->Get(i);
       std::unique_ptr<Tensor> target_tensor = Tensor::Create(source_tensor.DataType(),
-                                                             source_tensor.Shape(), alloc);
+                                                             source_tensor.Shape(), alloc,
+                                                             GetComputeStream(context));
 
       CUDA_RETURN_IF_ERROR(cudaMemcpyAsync(target_tensor->MutableDataRaw(),
                                            source_tensor.DataRaw(),
@@ -236,7 +238,8 @@ class SequenceInsert final : public CudaKernel {
                 "SequenceInsert GPU: Unable to get an allocator.");
 
     std::unique_ptr<Tensor> tensor_to_be_inserted = Tensor::Create(X->DataType(),
-                                                                   X->Shape(), alloc);
+                                                                   X->Shape(), alloc,
+                                                                   GetComputeStream(context));
     CUDA_RETURN_IF_ERROR(cudaMemcpyAsync(tensor_to_be_inserted->MutableDataRaw(),
                                          X->DataRaw(), X->SizeInBytes(),
                                          cudaMemcpyDeviceToDevice, Stream(context)));
@@ -251,7 +254,8 @@ class SequenceInsert final : public CudaKernel {
       }
       const Tensor& source_tensor = S->Get(i);
       std::unique_ptr<Tensor> target_tensor = Tensor::Create(source_tensor.DataType(),
-                                                             source_tensor.Shape(), alloc);
+                                                             source_tensor.Shape(), alloc,
+                                                             GetComputeStream(context));
       CUDA_RETURN_IF_ERROR(cudaMemcpyAsync(target_tensor->MutableDataRaw(),
                                            source_tensor.DataRaw(),
                                            source_tensor.SizeInBytes(),
