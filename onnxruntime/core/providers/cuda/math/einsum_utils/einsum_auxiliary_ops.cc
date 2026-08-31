@@ -31,8 +31,14 @@ Status DataCopy(const Tensor& input, Tensor& output, void* einsum_cuda_assets) {
   return Status::OK();
 }
 
-std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator) {
-  return Tensor::Create(type, shape, std::move(allocator));
+std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator,
+                                     void* einsum_cuda_assets) {
+  // Einsum's intermediates are written and read by work queued on this stream, but they are
+  // released as soon as they go out of scope in Compute() - while that work is still queued.
+  // Allocating on the stream lets a stream aware arena tag the chunk, so it cannot be handed to
+  // another stream before this one has caught up.
+  return Tensor::Create(type, shape, std::move(allocator),
+                        static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->ort_stream_);
 }
 
 // CUDA EP specific Zero buffer helper
@@ -128,7 +134,8 @@ std::unique_ptr<Tensor> Diagonal(const Tensor& input, int64_t dim_1, int64_t dim
   // The diagonal values are stored along `first_dim`
   output_dims.erase(output_dims.begin() + second_dim);
 
-  auto output = Tensor::Create(input.DataType(), output_dims, allocator);
+  auto output = Tensor::Create(input.DataType(), output_dims, allocator,
+                               static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->ort_stream_);
 
   TensorPitches input_strides(input.Shape().GetDims());
   cuda::TArray<int64_t> gpu_input_strides(input_strides);
