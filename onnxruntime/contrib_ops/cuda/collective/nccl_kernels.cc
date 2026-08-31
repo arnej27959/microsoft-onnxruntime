@@ -305,7 +305,8 @@ Status AllGather::ComputeInternal(OpKernelContext* context) const {
     }
 
     // Allocate a temporary tensor to hold transposed input
-    auto temp_input = Tensor::Create(input_tensor->DataType(), TensorShape(transposed_input_dims), alloc);
+    auto temp_input = Tensor::Create(input_tensor->DataType(), TensorShape(transposed_input_dims), alloc,
+                                     GetComputeStream(context));
 
     // Perform the transpose
     ORT_RETURN_IF_ERROR(onnxruntime::cuda::Transpose::DoTranspose(cuda_ep_->GetDeviceProp(),
@@ -315,7 +316,8 @@ Status AllGather::ComputeInternal(OpKernelContext* context) const {
     // Allocate a tempoarary buffer for all gather
     TensorShape all_gather_out_shape(transposed_input_dims);
     all_gather_out_shape[0] = group_size_ * all_gather_out_shape[0];
-    auto all_gather_output = Tensor::Create(temp_input->DataType(), all_gather_out_shape, alloc);
+    auto all_gather_output = Tensor::Create(temp_input->DataType(), all_gather_out_shape, alloc,
+                                            GetComputeStream(context));
     ncclDataType_t dtype = GetNcclDataType(temp_input->DataType());
     NCCL_RETURN_IF_ERROR(ncclAllGather(temp_input->DataRaw(),
                                        all_gather_output->MutableDataRaw(),
@@ -523,7 +525,8 @@ void FuncAllGather(
     transposed_shape[0] = source_shape[axis];
     transposed_shape[axis] = source_shape[0];
 
-    auto transposed_buffer = Tensor::Create(input->DataType(), transposed_shape, alloc);
+    auto transposed_buffer = Tensor::Create(input->DataType(), transposed_shape, alloc,
+                                            nccl_kernel->GetComputeStream(ctx));
 
     // swap axis 0 and axis axis
     std::vector<size_t> perm = CalculatePermToSwapAxes(0, axis, source_shape.NumDimensions());
@@ -535,7 +538,8 @@ void FuncAllGather(
 
     TensorShape gathered_shape(transposed_shape);
     gathered_shape[0] = group_size * transposed_shape[0];
-    auto gathered_buffer = Tensor::Create(input->DataType(), gathered_shape, alloc);
+    auto gathered_buffer = Tensor::Create(input->DataType(), gathered_shape, alloc,
+                                          nccl_kernel->GetComputeStream(ctx));
 
     ncclAllGather(
         transposed_buffer->DataRaw(),
@@ -565,7 +569,7 @@ std::unique_ptr<Tensor> FuncAllGather(
   ORT_ENFORCE(ctx->GetTempSpaceAllocator(&alloc) == Status::OK());
   TensorShape output_shape(input->Shape());
   output_shape[axis] = group_size * output_shape[axis];
-  auto output = Tensor::Create(input->DataType(), output_shape, alloc);
+  auto output = Tensor::Create(input->DataType(), output_shape, alloc, nccl_kernel->GetComputeStream(ctx));
   FuncAllGather(nccl_kernel, ctx, input, group_size, axis, output.get());
   return output;
 }
