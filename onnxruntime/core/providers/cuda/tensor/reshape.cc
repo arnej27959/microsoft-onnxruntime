@@ -79,7 +79,7 @@ std::unique_ptr<Tensor> FuncReshape(
   // Pre-allocate output.
   AllocatorPtr alloc;
   ORT_ENFORCE(ctx->GetTempSpaceAllocator(&alloc).IsOK());
-  auto Y = Tensor::Create(X->DataType(), dst_shape, alloc);
+  auto Y = Tensor::Create(X->DataType(), dst_shape, alloc, cuda_kernel->GetComputeStream(ctx));
 
   // Do reshape. It's equivalent to memcpy.
   ORT_ENFORCE(FuncReshape(cuda_kernel, ctx, X, shape, allow_zero, Y.get()).IsOK());
