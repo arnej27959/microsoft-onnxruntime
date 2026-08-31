@@ -32,7 +32,8 @@ class EinsumComputePreprocessor;
 namespace EinsumOp {
 namespace DeviceHelpers {
 using DataCopy = std::function<Status(const Tensor& input, Tensor& output, void* einsum_cuda_assets)>;
-using CreateTensor = std::function<std::unique_ptr<Tensor>(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator)>;
+using CreateTensor = std::function<std::unique_ptr<Tensor>(const DataTypeImpl* type, const TensorShape& shape,
+                                                           AllocatorPtr allocator, void* einsum_cuda_assets)>;
 using ZeroBuffer = std::function<Status(Tensor& input, void* einsum_cuda_assets)>;
 using Transpose = std::function<Status(const gsl::span<const size_t>& permutation, const Tensor& input,
                                        Tensor& output, const TensorShape* input_shape_override,
