@@ -70,6 +70,9 @@ Status ConvTranspose<T, NHWC>::PrePack(const Tensor& tensor, int input_idx, Allo
         nhwc_dims.push_back(orig_shape[perm[i]]);
       }
 
+      // No stream to allocate on: this runs at session initialization, on the default
+      // stream, and the buffer lives as long as the kernel rather than being returned to
+      // the arena between runs.
       W_ = Tensor::Create(tensor.DataType(), TensorShape(nhwc_dims), std::move(alloc));
 
       auto status = cuda::Transpose::DoTranspose(GetDeviceProp(),
