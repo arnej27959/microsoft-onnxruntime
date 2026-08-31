@@ -7,9 +7,9 @@
 // as they go out of scope in Compute() - while that work may still be in flight. A stream aware
 // arena can only keep such a buffer away from another stream if the allocation was tagged with the
 // stream that uses it, which means the helpers have to allocate through IAllocator::AllocOnStream
-// rather than the plain Alloc(). These tests wrap the device allocator in a recorder and assert
-// that every intermediate is tagged with the stream in the Einsum assets, so a helper that goes
-// back to an untagged allocation is caught here.
+// rather than the plain Alloc(). These tests wrap the device allocator in a
+// StreamRecordingAllocator and assert that every intermediate is tagged with the stream in the
+// Einsum assets, so a helper that goes back to an untagged allocation is caught here.
 //
 // This is a provider-world translation unit: it reaches into CUDA EP internals through the shared
 // provider bridge, so it must not include the core framework headers.
@@ -23,42 +23,10 @@
 #include "core/framework/stream_handles.h"
 #include "core/providers/cuda/cuda_allocator.h"
 #include "core/providers/cuda/math/einsum_utils/einsum_auxiliary_ops.h"
+#include "test/providers/cuda/test_cases/stream_recording_allocator.h"
 
 namespace onnxruntime {
 namespace test {
-
-namespace {
-
-// Forwards to a real device allocator and records which entry point each allocation came in on.
-class StreamRecordingAllocator : public IAllocator {
- public:
-  explicit StreamRecordingAllocator(AllocatorPtr inner)
-      : IAllocator(inner->Info()), inner_(std::move(inner)) {}
-
-  bool IsStreamAware() const override { return true; }
-
-  void* Alloc(size_t size) override {
-    ++untagged_allocs;
-    return inner_->Alloc(size);
-  }
-
-  void* AllocOnStream(size_t size, Stream* stream) override {
-    ++stream_allocs;
-    last_stream = stream;
-    return inner_->AllocOnStream(size, stream);
-  }
-
-  void Free(void* p) override { inner_->Free(p); }
-
-  int untagged_allocs = 0;
-  int stream_allocs = 0;
-  Stream* last_stream = nullptr;
-
- private:
-  AllocatorPtr inner_;
-};
-
-}  // namespace
 
 class EinsumCudaIntermediateTest : public ::testing::Test {
  protected:

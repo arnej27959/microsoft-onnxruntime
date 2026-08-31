@@ -211,7 +211,8 @@ std::unique_ptr<Tensor> FuncExpand(
   // Pre-allocate output.
   AllocatorPtr alloc;
   ORT_ENFORCE(ctx->GetTempSpaceAllocator(&alloc).IsOK());
-  auto output_tensor = Tensor::Create(input_data_tensor->DataType(), output_shape, alloc);
+  auto output_tensor = Tensor::Create(input_data_tensor->DataType(), output_shape, alloc,
+                                      cuda_kernel->GetComputeStream(ctx));
 
   // Only assign output values when output tensor is non-empty
   // because empty tensor doesn't own any data.
