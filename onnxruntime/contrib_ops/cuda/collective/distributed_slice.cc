@@ -95,7 +95,8 @@ Status DistributedSlice<T, Tind>::ComputeInternal(OpKernelContext* context) cons
     } else {
       AllocatorPtr alloc;
       ORT_ENFORCE(context->GetTempSpaceAllocator(&alloc) == Status::OK());
-      auto dst_tensor = Tensor::Create(tensor_data->DataType(), output_shape, alloc);
+      auto dst_tensor = Tensor::Create(tensor_data->DataType(), output_shape, alloc,
+                                       GetComputeStream(context));
       ORT_RETURN_IF_ERROR(FuncSlice(this,
                                     context,
                                     tensor_data.get(),
@@ -128,7 +129,8 @@ Status DistributedSlice<T, Tind>::ComputeInternal(OpKernelContext* context) cons
     } else {
       AllocatorPtr alloc;
       ORT_ENFORCE(context->GetTempSpaceAllocator(&alloc) == Status::OK());
-      auto dst_tensor = Tensor::Create(tensor_shard_data->DataType(), output_shape, alloc);
+      auto dst_tensor = Tensor::Create(tensor_shard_data->DataType(), output_shape, alloc,
+                                       GetComputeStream(context));
       ORT_RETURN_IF_ERROR(FuncSlice(this,
                                     context,
                                     tensor_shard_data,

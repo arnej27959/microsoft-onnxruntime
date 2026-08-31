@@ -57,7 +57,7 @@ std::unique_ptr<Tensor> GatherTensor(
 
   AllocatorPtr alloc;
   ORT_ENFORCE(ctx->GetTempSpaceAllocator(&alloc) == Status::OK());
-  auto gathered = Tensor::Create(tensor->DataType(), gathered_shape, alloc);
+  auto gathered = Tensor::Create(tensor->DataType(), gathered_shape, alloc, nccl_kernel->GetComputeStream(ctx));
 
   FuncAllGather(
       nccl_kernel,
@@ -119,7 +119,7 @@ std::unique_ptr<Tensor> ShardTensor(
       tensor->Shape(),
       spec.GetPartitionAxis(),
       spec.GetUniqueDeviceCount(spec.GetPartitionAxis()));
-  auto shard_buffer = Tensor::Create(tensor->DataType(), shard_shape, alloc);
+  auto shard_buffer = Tensor::Create(tensor->DataType(), shard_shape, alloc, nccl_kernel->GetComputeStream(ctx));
 
   // Shard with pre-allocated buffer.
   ShardTensor(
@@ -202,7 +202,7 @@ std::unique_ptr<Tensor> ReshardTensor(
 
   AllocatorPtr alloc;
   ORT_ENFORCE(ctx->GetTempSpaceAllocator(&alloc) == Status::OK());
-  auto dst = Tensor::Create(src->DataType(), dst_shape, alloc);
+  auto dst = Tensor::Create(src->DataType(), dst_shape, alloc, nccl_kernel->GetComputeStream(ctx));
   ReshardTensor(
       nccl_kernel,
       ctx,
