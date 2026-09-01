@@ -28,10 +28,7 @@ namespace DeviceHelpers {
 using DataCopy = std::function<Status(const Tensor& input, Tensor& output, void* einsum_cuda_assets)>;
 
 // Create tensor op - Creates an intermediate tensor
-// Takes `einsum_cuda_assets` so that a device implementation can allocate on the stream the
-// intermediate will be written and read on, rather than leaving the allocation untagged.
-using CreateTensor = std::function<std::unique_ptr<Tensor>(const DataTypeImpl* type, const TensorShape& shape,
-                                                           AllocatorPtr allocator, void* einsum_cuda_assets)>;
+using CreateTensor = std::function<std::unique_ptr<Tensor>(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator)>;
 
 // Zero buffer op - Sets all bytes in the tensor's buffer to zero
 using ZeroBuffer = std::function<Status(Tensor& input, void* einsum_cuda_assets)>;
@@ -73,8 +70,7 @@ namespace CpuDeviceHelpers {
 
 Status DataCopy(const Tensor& input, Tensor& output, void* einsum_cuda_assets);
 
-std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator,
-                                     void* einsum_cuda_assets);
+std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator);
 
 Status ZeroBuffer(Tensor& input, void* einsum_cuda_assets);
 
@@ -137,7 +133,7 @@ inline std::unique_ptr<Tensor> Transpose(const Tensor& input, const TensorShape&
 
   // Pass in allocator as that will be used as an allocator deleter by the framework
   // and it will de-allocate the memory for this intermediate tensor when it goes out of scope
-  std::unique_ptr<Tensor> output = device_create_tensor_func(input.DataType(), output_dims, allocator, einsum_cuda_assets);
+  std::unique_ptr<Tensor> output = device_create_tensor_func(input.DataType(), output_dims, allocator);
 
   TensorShape overridden_shape(input_shape_override);
 
@@ -182,7 +178,7 @@ inline std::unique_ptr<Tensor> MatMul(const Tensor& input_1, const gsl::span<con
 
   // Pass in allocator as that will be used as an allocator deleter by the framework
   // and it will de-allocate the memory for this intermediate tensor when it goes out of scope
-  std::unique_ptr<Tensor> output = device_create_tensor_func(input_1.DataType(), output_dims, allocator, einsum_cuda_assets);
+  std::unique_ptr<Tensor> output = device_create_tensor_func(input_1.DataType(), output_dims, allocator);
 
   const T* input_1_data = input_1.Data<T>();
   const T* input_2_data = input_2.Data<T>();
