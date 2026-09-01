@@ -22,8 +22,7 @@ Status DataCopy(const Tensor& input, Tensor& output, void* /*einsum_cuda_assets*
   return Status::OK();
 }
 
-std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator,
-                                     void* /*einsum_cuda_assets*/) {
+std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator) {
   return std::make_unique<Tensor>(type, shape, std::move(allocator));
 }
 
