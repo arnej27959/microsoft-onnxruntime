@@ -78,9 +78,17 @@ class EinsumCudaIntermediateTest : public ::testing::Test {
     device_ = device_allocator_->Info().device;  // Stream holds a reference to this
     stream_ = std::make_unique<Stream>(cuda_stream_, device_);
 
-    // cuBLAS and cuDNN handles are left null: none of the helpers exercised here use them.
-    assets_ = std::make_unique<EinsumOp::EinsumCudaAssets>(stream_.get(), device_prop_, nullptr, nullptr,
-                                                           device_allocator_, false);
+    assets_ = MakeAssets(stream_.get());
+  }
+
+  // The allocation stream is tracked separately from the stream the work is queued on, because a
+  // plugin build hosted by an ORT that cannot hand out its framework stream has no stream to tag
+  // allocations with. Passing null for `alloc_stream` models that host.
+  //
+  // The cuBLAS and cuDNN handles are left null: none of the helpers exercised here use them.
+  std::unique_ptr<EinsumOp::EinsumCudaAssets> MakeAssets(Stream* alloc_stream) {
+    return std::make_unique<EinsumOp::EinsumCudaAssets>(stream_.get(), alloc_stream, device_prop_,
+                                                        nullptr, nullptr, device_allocator_, false);
   }
 
   void TearDown() override {
@@ -128,14 +136,28 @@ TEST_F(EinsumCudaIntermediateTest, CreateTensorAllocatesOnTheRunStream) {
   EXPECT_EQ(recording_allocator_->last_stream, stream_.get());
 }
 
+// With no stream to tag allocations with, the intermediate has to fall back to the plain
+// allocation rather than tagging it with the stream the work is queued on - in a plugin build that
+// stream can be a shim that a stream aware arena must never be handed.
+TEST_F(EinsumCudaIntermediateTest, CreateTensorAllocatesUntaggedWithoutAnAllocationStream) {
+  auto assets = MakeAssets(/*alloc_stream*/ nullptr);
+
+  auto tensor = EinsumOp::DeviceHelpers::CudaDeviceHelpers::CreateTensor(
+      DataTypeImpl::GetType<float>(), TensorShape({2, 3}), recording_allocator_, assets.get());
+
+  ASSERT_NE(tensor, nullptr);
+  EXPECT_EQ(recording_allocator_->stream_allocs, 0);
+  EXPECT_EQ(recording_allocator_->untagged_allocs, 1);
+}
+
 // Diagonal allocates its output itself instead of going through CreateTensor.
 TEST_F(EinsumCudaIntermediateTest, DiagonalAllocatesOnTheRunStream) {
   auto input = DeviceTensor(TensorShape({3, 3}), {0.f, 1.f, 2.f,
-                                                 3.f, 4.f, 5.f,
-                                                 6.f, 7.f, 8.f});
+                                                  3.f, 4.f, 5.f,
+                                                  6.f, 7.f, 8.f});
 
   auto output = EinsumOp::DeviceHelpers::CudaDeviceHelpers::Diagonal(*input, 0, 1, recording_allocator_,
-                                                                    assets_.get());
+                                                                     assets_.get());
 
   ASSERT_NE(output, nullptr);
   EXPECT_EQ(recording_allocator_->stream_allocs, 1);

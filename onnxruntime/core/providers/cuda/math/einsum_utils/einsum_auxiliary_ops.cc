@@ -36,9 +36,10 @@ std::unique_ptr<Tensor> CreateTensor(const DataTypeImpl* type, const TensorShape
   // Einsum's intermediates are written and read by work queued on this stream, but they are
   // released as soon as they go out of scope in Compute() - while that work is still queued.
   // Allocating on the stream lets a stream aware arena tag the chunk, so it cannot be handed to
-  // another stream before this one has caught up.
+  // another stream before this one has caught up. `alloc_stream_` is null when there is no stream
+  // to tag with, which falls back to the plain allocation.
   return Tensor::Create(type, shape, std::move(allocator),
-                        static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->ort_stream_);
+                        static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->alloc_stream_);
 }
 
 // CUDA EP specific Zero buffer helper
@@ -104,6 +105,7 @@ std::unique_ptr<Tensor> ReduceSum(const Tensor& input, gsl::span<const int64_t> 
                                               allocator, input, reduce_axes,  // TODO(leca): is this allocator the same as the 1st parameter?
                                               keep_dims, false, false, false,
                                               true, static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->ort_stream_,
+                                              static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->alloc_stream_,
                                               static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->cudnn_handle_,
                                               input_shape_override);
 }
@@ -135,7 +137,7 @@ std::unique_ptr<Tensor> Diagonal(const Tensor& input, int64_t dim_1, int64_t dim
   output_dims.erase(output_dims.begin() + second_dim);
 
   auto output = Tensor::Create(input.DataType(), output_dims, allocator,
-                               static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->ort_stream_);
+                               static_cast<EinsumCudaAssets*>(einsum_cuda_assets)->alloc_stream_);
 
   TensorPitches input_strides(input.Shape().GetDims());
   cuda::TArray<int64_t> gpu_input_strides(input_strides);
