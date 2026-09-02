@@ -111,6 +111,7 @@ list(FILTER CUDA_PLUGIN_EP_CU_SRCS EXCLUDE REGEX ".*/contrib_ops/cuda/transforme
 
 # Apply shared CUDA .cu source filtering (flash attention quick build, MoE GEMM FP4/FP8).
 include(onnxruntime_cuda_source_filters.cmake)
+include(onnxruntime_cuda_cccl.cmake)
 onnxruntime_filter_cuda_cu_sources(CUDA_PLUGIN_EP_CU_SRCS)
 onnxruntime_extract_sm_specific_cuda_sources(CUDA_PLUGIN_EP_CU_SRCS
   SM90_SOURCES _cuda_plugin_sm90_tma_srcs
@@ -446,6 +447,13 @@ target_include_directories(onnxruntime_providers_cuda_plugin PRIVATE
     ${cutlass_SOURCE_DIR}/examples
     ${cutlass_SOURCE_DIR}/tools/util/include
 )
+
+# The host .cc files globbed into this target (contrib_ops/cuda/llm/*.cc and friends) include
+# CUTLASS headers, which include <cuda/std/...>. From CUDA 13.0 those live in a cccl subdirectory
+# of the toolkit include dir, so the host compiler needs it added explicitly. In the non-plugin
+# build the same files are part of onnxruntime_providers_cuda, which gets this from
+# config_cuda_provider_shared_module.
+ort_add_cuda_cccl_include_dirs(onnxruntime_providers_cuda_plugin)
 
 onnxruntime_add_include_to_target(
     onnxruntime_providers_cuda_plugin
