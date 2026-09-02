@@ -45,6 +45,7 @@ Status Einsum::ComputeInternal(OpKernelContext* context) const {
   auto ort_stream = GetOrtStream(context);
   EinsumOp::EinsumCudaAssets einsum_cuda_assets(
       ort_stream,
+      GetAllocationStream(context),
       GetDeviceProp(),
       GetCublasHandle(context),
       GetCudnnHandle(context),
@@ -57,7 +58,7 @@ Status Einsum::ComputeInternal(OpKernelContext* context) const {
   EinsumOp::DeviceHelpers::CreateTensor create_tensor_func =
       [&einsum_cuda_assets](const DataTypeImpl* type, const TensorShape& shape, AllocatorPtr allocator_ptr) {
         return EinsumOp::DeviceHelpers::CudaDeviceHelpers::CreateTensor(type, shape, std::move(allocator_ptr),
-                                                                       &einsum_cuda_assets);
+                                                                        &einsum_cuda_assets);
       };
 
   EinsumComputePreprocessor einsum_compute_preprocessor(einsum_equation_preprocessor, inputs, allocator,
