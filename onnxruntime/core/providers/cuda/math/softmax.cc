@@ -150,7 +150,7 @@ Status Softmax<T>::ComputeInternal(OpKernelContext* ctx) const {
 
     // Allocate a temporary tensor to hold transposed input
     auto temp_input = Tensor::Create(X->DataType(), TensorShape(transposed_input_dims), alloc,
-                                     GetComputeStream(ctx));
+                                     GetAllocationStream(ctx));
 
     // Perform the transpose
     ORT_RETURN_IF_ERROR(Transpose::DoTranspose(GetDeviceProp(),
@@ -161,7 +161,7 @@ Status Softmax<T>::ComputeInternal(OpKernelContext* ctx) const {
 
     // Allocate memory for the intermediate output
     intermediate_output = Tensor::Create(Y->DataType(), TensorShape(transposed_input_dims), alloc,
-                                         GetComputeStream(ctx));
+                                         GetAllocationStream(ctx));
   }
 
   const T* X_data = nullptr;
