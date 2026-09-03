@@ -135,8 +135,9 @@ Status TopK(const Tensor* input, const int axis, const unsigned k, bool largest,
   int64_t dimension = input_shape[axis];
   int64_t N = elem_nums_cuda[0] / dimension;
 
-  output_values = std::move(*Tensor::Create(input->DataType(), output_shape, allocator));
-  output_indices = std::move(*Tensor::Create(DataTypeImpl::GetType<int64_t>(), output_shape, std::move(allocator)));
+  output_values = std::move(*Tensor::Create(input->DataType(), output_shape, allocator, stream));
+  output_indices = std::move(*Tensor::Create(DataTypeImpl::GetType<int64_t>(), output_shape, std::move(allocator),
+                                             stream));
 
   Status result;
   auto cuda_stream = stream ? static_cast<cudaStream_t>(stream->GetHandle()) : nullptr;

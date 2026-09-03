@@ -357,12 +357,12 @@ Status PrepareForReduce(const Tensor* X,
 // allocator. Otherwise fall back to IAllocator::MakeUniquePtr (in-tree path).
 template <typename T>
 inline IAllocatorUniquePtr<T> AllocateScratchBuffer(
-    const AllocatorPtr& gpu_allocator, const CudaKernel* kernel, size_t count, void* compute_stream) {
+    const AllocatorPtr& gpu_allocator, const CudaKernel* kernel, size_t count, void* alloc_stream) {
   if (count == 0) return nullptr;
   if (kernel) {
-    return kernel->GetScratchBuffer<T>(count, compute_stream);
+    return kernel->GetScratchBuffer<T>(count, alloc_stream);
   }
-  return IAllocator::MakeUniquePtr<T>(gpu_allocator, count, false, static_cast<onnxruntime::Stream*>(compute_stream));
+  return IAllocator::MakeUniquePtr<T>(gpu_allocator, count, false, static_cast<onnxruntime::Stream*>(alloc_stream));
 }
 
 // `input_shape_override` is the input shape for compute purposes (if provided)
@@ -371,7 +371,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
                          /*out*/ Tensor& output, cudnnReduceTensorOp_t cudnn_reduce_op,
                          gsl::span<const int64_t> axes,
                          bool calculate_log, bool calculate_sqt, bool log_sum_exp, bool fast_reduction,
-                         cudaStream_t cuda_stream, void* compute_stream, cudnnHandle_t cudnn_handle,
+                         cudaStream_t cuda_stream, void* alloc_stream, cudnnHandle_t cudnn_handle,
                          const TensorShape* input_shape_override) {
   typedef typename ToCudaType<T>::MappedType CudaT;
   const TensorShape& input_shape = input_shape_override ? *input_shape_override : input.Shape();
@@ -432,7 +432,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
       IAllocatorUniquePtr<T> input_data_buffer(nullptr, [](T*) {});
       const CudaT* input_data = reinterpret_cast<const CudaT*>(input.Data<T>());
       if (calculate_sqt) {
-        input_data_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, compute_stream);
+        input_data_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, alloc_stream);
         input_data = reinterpret_cast<CudaT*>(input_data_buffer.get());
         fast_divmod tmp_div;
         Impl_Mul<CudaT>(stream, static_cast<int32_t>(SimpleBroadcast::NoBroadcast), nullptr,
@@ -451,7 +451,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
           const auto buffer_size_bytes = compute_reduce_matrix_columns_buffer_size<CudaT>(m, n);
           auto buffer = buffer_size_bytes == 0
                             ? nullptr
-                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, buffer_size_bytes, compute_stream);
+                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, buffer_size_bytes, alloc_stream);
           ORT_RETURN_IF_ERROR(reduce_matrix_columns(stream, input_data,
                                                     reinterpret_cast<CudaT*>(output.MutableData<T>()), m, n,
                                                     buffer.get(), buffer_size_bytes));
@@ -493,7 +493,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
           const auto buffer_size_bytes = compute_arg_min_max_last_axis_buffer_size<CudaT>(rows, cols);
           auto buffer = buffer_size_bytes == 0
                             ? nullptr
-                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, buffer_size_bytes, compute_stream);
+                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, buffer_size_bytes, alloc_stream);
           if (cudnn_reduce_op == CUDNN_REDUCE_TENSOR_MAX) {
             return arg_min_max_last_axis<CudaT, true>(stream, reinterpret_cast<const CudaT*>(input.Data<T>()),
                                                       output.MutableData<int64_t>(), rows, cols,
@@ -530,7 +530,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
   if ((ReduceTensorIndices == CUDNN_REDUCE_TENSOR_FLATTENED_INDICES && std::is_same<T, MLFloat16>::value) ||
       (ReduceTensorIndices == CUDNN_REDUCE_TENSOR_NO_INDICES && std::is_same<T, BFloat16>::value)) {
     // ArgMax/ArgMin with FP16 are not supported by cudnn, so convert input to fp32 then call cudnn
-    temp_X = AllocateScratchBuffer<float>(gpu_allocator, kernel, input_count, compute_stream);
+    temp_X = AllocateScratchBuffer<float>(gpu_allocator, kernel, input_count, alloc_stream);
     Impl_Cast<CudaT, float>(stream, reinterpret_cast<const CudaT*>(input.Data<T>()), temp_X.get(), input_shape.Size());
   } else {
     cudnn_type_X = CudnnTensor::GetDataType<CudaT>();
@@ -555,20 +555,20 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
                                                        input_tensor, output_tensor, &workspace_bytes));
   auto workspace_cuda = workspace_bytes == 0
                             ? nullptr
-                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, workspace_bytes, compute_stream);
+                            : AllocateScratchBuffer<void>(gpu_allocator, kernel, workspace_bytes, alloc_stream);
 
   size_t indices_bytes = 0;
   CUDNN_RETURN_IF_ERROR(cudnnGetReductionIndicesSize(cudnn_handle, reduce_desc,
                                                      input_tensor, output_tensor, &indices_bytes));
   auto indices_cuda = indices_bytes == 0
                           ? nullptr
-                          : AllocateScratchBuffer<void>(gpu_allocator, kernel, indices_bytes, compute_stream);
+                          : AllocateScratchBuffer<void>(gpu_allocator, kernel, indices_bytes, alloc_stream);
 
   if (ReduceTensorIndices == CUDNN_REDUCE_TENSOR_NO_INDICES) {
     IAllocatorUniquePtr<T> input_data_buffer(nullptr, [](T*) {});
     CudaT* input_data = nullptr;
     if (calculate_sqt) {
-      input_data_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, compute_stream);
+      input_data_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, alloc_stream);
       input_data = reinterpret_cast<CudaT*>(input_data_buffer.get());
       fast_divmod tmp_div;
       Impl_Mul<CudaT>(stream,
@@ -597,7 +597,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
                                                            input_tensor, output_tensor, &indices_bytes_max));
         auto indices_cuda_max = indices_bytes_max == 0
                                     ? nullptr
-                                    : AllocateScratchBuffer<void>(gpu_allocator, kernel, indices_bytes_max, compute_stream);
+                                    : AllocateScratchBuffer<void>(gpu_allocator, kernel, indices_bytes_max, alloc_stream);
         auto* p_output = reinterpret_cast<CudaT*>(output.template MutableData<T>());
         CUDNN_RETURN_IF_ERROR(cudnnReduceTensor(
             cudnn_handle, reduce_max_desc, indices_cuda_max.get(), indices_bytes_max,
@@ -608,11 +608,11 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
 
       // Exp(X-ReduceMax)
       const TensorShape output_shape(output_dims);
-      auto exp_result_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, compute_stream);
+      auto exp_result_buffer = AllocateScratchBuffer<T>(gpu_allocator, kernel, input_count, alloc_stream);
       auto exp_result = exp_result_buffer.get();
       auto log_sum_result_buffer = output_count == 0
                                        ? nullptr
-                                       : AllocateScratchBuffer<T>(gpu_allocator, kernel, output_count, compute_stream);
+                                       : AllocateScratchBuffer<T>(gpu_allocator, kernel, output_count, alloc_stream);
       auto log_sum_result = log_sum_result_buffer.get();
       BinaryElementwisePreparation prepare;
       ORT_RETURN_IF_ERROR(prepare.BinaryElementwiseBroadcastPrepareHelper(input_shape, output_shape, input_shape));
@@ -692,7 +692,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
         if (temp_X) {
           auto temp_output = output_count == 0
                                  ? nullptr
-                                 : AllocateScratchBuffer<float>(gpu_allocator, kernel, output_count, compute_stream);
+                                 : AllocateScratchBuffer<float>(gpu_allocator, kernel, output_count, alloc_stream);
           CUDNN_RETURN_IF_ERROR(cudnnReduceTensor(
               cudnn_handle, reduce_desc, indices_cuda.get(), indices_bytes,
               workspace_cuda.get(), workspace_bytes,
@@ -720,7 +720,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
       if (temp_X) {
         auto temp_output = output_count == 0
                                ? nullptr
-                               : AllocateScratchBuffer<float>(gpu_allocator, kernel, output_count, compute_stream);
+                               : AllocateScratchBuffer<float>(gpu_allocator, kernel, output_count, alloc_stream);
         CUDNN_RETURN_IF_ERROR(cudnnReduceTensor(
             cudnn_handle, reduce_desc, indices_cuda.get(), indices_bytes,
             workspace_cuda.get(), workspace_bytes,
@@ -729,7 +729,7 @@ Status ReduceComputeCore(const AllocatorPtr& gpu_allocator, const CudaKernel* ke
       } else {
         auto temp_output = output_count == 0
                                ? nullptr
-                               : AllocateScratchBuffer<CudaT>(gpu_allocator, kernel, output_count, compute_stream);
+                               : AllocateScratchBuffer<CudaT>(gpu_allocator, kernel, output_count, alloc_stream);
         CUDNN_RETURN_IF_ERROR(cudnnReduceTensor(
             cudnn_handle, reduce_desc, indices_cuda.get(), indices_bytes,
             workspace_cuda.get(), workspace_bytes,
@@ -758,7 +758,7 @@ template Status ReduceComputeCore<float, CUDNN_REDUCE_TENSOR_NO_INDICES>(
     /*out*/ Tensor& output, cudnnReduceTensorOp_t cudnn_reduce_op,
     gsl::span<const int64_t> axes,
     bool calculate_log, bool calculate_sqt, bool log_sum_exp, bool fast_reduction,
-    cudaStream_t cuda_stream, void* compute_stream, cudnnHandle_t cudnn_handle,
+    cudaStream_t cuda_stream, void* alloc_stream, cudnnHandle_t cudnn_handle,
     const TensorShape* input_shape_override);
 
 template Status ReduceComputeCore<double, CUDNN_REDUCE_TENSOR_NO_INDICES>(
@@ -766,7 +766,7 @@ template Status ReduceComputeCore<double, CUDNN_REDUCE_TENSOR_NO_INDICES>(
     /*out*/ Tensor& output, cudnnReduceTensorOp_t cudnn_reduce_op,
     gsl::span<const int64_t> axes,
     bool calculate_log, bool calculate_sqt, bool log_sum_exp, bool fast_reduction,
-    cudaStream_t cuda_stream, void* compute_stream, cudnnHandle_t cudnn_handle,
+    cudaStream_t cuda_stream, void* alloc_stream, cudnnHandle_t cudnn_handle,
     const TensorShape* input_shape_override);
 
 template Status ReduceComputeCore<MLFloat16, CUDNN_REDUCE_TENSOR_NO_INDICES>(
@@ -774,7 +774,7 @@ template Status ReduceComputeCore<MLFloat16, CUDNN_REDUCE_TENSOR_NO_INDICES>(
     /*out*/ Tensor& output, cudnnReduceTensorOp_t cudnn_reduce_op,
     gsl::span<const int64_t> axes,
     bool calculate_log, bool calculate_sqt, bool log_sum_exp, bool fast_reduction,
-    cudaStream_t cuda_stream, void* compute_stream, cudnnHandle_t cudnn_handle,
+    cudaStream_t cuda_stream, void* alloc_stream, cudnnHandle_t cudnn_handle,
     const TensorShape* input_shape_override);
 
 template <bool allow_multi_axes>
@@ -991,8 +991,6 @@ std::unique_ptr<Tensor> ReduceCompute(const AllocatorPtr& gpu_allocator, cudnnRe
 
   auto output = Tensor::Create(input.DataType(), prepare_reduce_metadata.squeezed_output_dims, allocator, alloc_stream);
 
-  // ReduceComputeCore only uses its `compute_stream` to tag allocations, so it gets `alloc_stream`
-  // too. The launches take the native handle off `stream`.
   status = ReduceComputeCore<T, ReduceTensorIndices>(gpu_allocator, nullptr, input, prepare_reduce_metadata, *output, cudnn_reduce_op, axes,
                                                      calculate_log, calculate_sqt, log_sum_exp, fast_reduction,
                                                      stream ? static_cast<cudaStream_t>(stream->GetHandle()) : nullptr,
