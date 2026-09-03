@@ -8,7 +8,7 @@
 // The following three lines were copied from ABSL
 // cutlass needs them, because cutlass uses "and"/"or" keywords
 #ifdef __cplusplus
-#if __cplusplus < 202002L
+#if (defined(_MSVC_LANG) && _MSVC_LANG < 202002L) || (!defined(_MSVC_LANG) && __cplusplus < 202002L)
 #include <ciso646>
 #endif
 #endif
