@@ -1460,6 +1460,9 @@ struct ProviderHost {
   virtual Status SelectCudaRuntimeFusion(
       const GraphViewer&, const IExecutionProvider::IKernelLookup&, const GraphOptimizerRegistry&,
       const std::string& rule_id, std::vector<std::unique_ptr<ComputeCapability>>& capabilities) = 0;
+
+  // Stream aware Tensor allocation - appended at end to preserve vtable ABI compatibility
+  virtual std::unique_ptr<Tensor> Tensor__construct(MLDataType p_type, const TensorShape& shape, std::shared_ptr<IAllocator> allocator, Stream* stream) = 0;
 };
 
 #if defined(_MSC_VER) && !defined(__clang__)
