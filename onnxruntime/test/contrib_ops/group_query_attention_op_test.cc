@@ -4393,6 +4393,9 @@ TEST(GroupQueryAttentionTest, CudaCacheAliasingFlash) {
 
 TEST(GroupQueryAttentionTest, CudaFlashFastDecodeClampsNegativeSeqlensK) {
 #if USE_FLASH_ATTENTION
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "FlashAttention requires SM80 or later";
+  }
   std::vector<float> invalid_output;
   std::vector<float> clamped_output;
   RunGQACudaCacheAliasingTest(true, false, 0, &invalid_output, -5, true, true);
@@ -4405,6 +4408,9 @@ TEST(GroupQueryAttentionTest, CudaFlashFastDecodeClampsNegativeSeqlensK) {
 
 TEST(GroupQueryAttentionTest, CudaFlashFastDecodeClampsOversizedSeqlensK) {
 #if USE_FLASH_ATTENTION
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "FlashAttention requires SM80 or later";
+  }
   std::vector<float> invalid_output;
   std::vector<float> clamped_output;
   constexpr int cache_capacity = 8;
