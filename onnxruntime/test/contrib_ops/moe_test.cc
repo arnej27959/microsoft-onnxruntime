@@ -2056,8 +2056,8 @@ static void RunQMoEMixedWidthCudaIdentityTest(int64_t fc1_bits, int64_t fc2_bits
 }
 
 TEST(MoETest, QMoETest_MixedWidthCudaBlockWise) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   RunQMoEMixedWidthCudaIdentityTest(2, 4);
   RunQMoEMixedWidthCudaIdentityTest(4, 2);
@@ -2069,8 +2069,8 @@ TEST(MoETest, QMoETest_MixedWidthCudaBlockWise) {
 }
 
 TEST(MoETest, QMoETest_MixedWidthCudaCanonicalNonSquare) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   RunQMoEMixedWidthCudaIdentityTest(
       2, 4, /*max_scratch_bytes=*/0, /*fused_swiglu=*/false, /*with_zero_points=*/false,
@@ -2078,8 +2078,8 @@ TEST(MoETest, QMoETest_MixedWidthCudaCanonicalNonSquare) {
 }
 
 TEST(MoETest, QMoETest_MixedWidthCudaSingleBlock) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   RunQMoEMixedWidthCudaIdentityTest(
       2, 4, /*max_scratch_bytes=*/0, /*fused_swiglu=*/false, /*with_zero_points=*/true,
@@ -2103,8 +2103,8 @@ TEST(MoETest, QMoETest_MixedWidthCudaScratchLimit) {
 }
 
 TEST(MoETest, QMoETest_MixedWidthCudaFusedSwiGLU) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   RunQMoEMixedWidthCudaIdentityTest(2, 4, 0, true);
 }
@@ -2777,8 +2777,8 @@ TEST(MoETest, QMoETest_MixedWidthCudaPackedPrefillDisabled) {
 }
 
 TEST(MoETest, QMoETest_MixedWidthCudaBlock32DenseFallbackWithoutPrefill) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   ScopedEnvironmentVariables scoped_env_vars{{{"ORT_ENABLE_QMOE_INT2_PREFILL", "0"}}};
   for (const auto& weight_bits : {std::pair<int64_t, int64_t>{2, 4}, {2, 2}, {4, 2}}) {
@@ -2843,8 +2843,8 @@ TEST(MoETest, QMoETest_MixedWidthCudaPackedDecodeBFloat16) {
 #endif
 
 TEST(MoETest, QMoETest_MixedWidthCudaAsymmetricZeroPoints) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   RunQMoEMixedWidthCudaIdentityTest(
       2, 4, /*max_scratch_bytes=*/0, /*fused_swiglu=*/false, /*with_zero_points=*/true,
@@ -4288,8 +4288,8 @@ static void ConfigureCudaMoeRoutingTester(
 }
 
 TEST(MoETest, MoECudaLogHasCounterUpdateSchema) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   auto execution_provider = DefaultCudaExecutionProvider();
   ASSERT_NE(execution_provider, nullptr);
@@ -4321,8 +4321,8 @@ TEST(MoETest, MoECudaLogHasCounterUpdateSchema) {
 }
 
 TEST(MoETest, QMoECudaTiledLogHasOneCounterUpdate) {
-  if (!HasCudaEnvironment(700)) {
-    GTEST_SKIP() << "CUDA device with compute capability 7.0 or newer is required.";
+  if (!HasCudaEnvironment(800)) {
+    GTEST_SKIP() << "CUDA device with compute capability 8.0 or newer is required.";
   }
   auto execution_provider = DefaultCudaExecutionProvider();
   ASSERT_NE(execution_provider, nullptr);
