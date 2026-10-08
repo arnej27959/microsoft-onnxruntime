@@ -1015,7 +1015,14 @@ class CudaKernel : public OpKernel {
   virtual Status ComputeInternal(OpKernelContext* ctx) const = 0;
 
   inline cudaStream_t DefaultCudaStream() const { return Stream(static_cast<OpKernelContext*>(nullptr)); }
-  inline cublasHandle_t DefaultCublasHandle() const { return detail::GetDefaultCudaHandlesForDevice(device_id_).cublas; }
+  // The fallback handle is shared per thread and kernels bind it to their own stream, which may since
+  // have been destroyed. Rebind to the legacy default stream so callers that rely on it (e.g. PrePack)
+  // never launch work on a stale stream.
+  inline cublasHandle_t DefaultCublasHandle() const {
+    cublasHandle_t handle = detail::GetDefaultCudaHandlesForDevice(device_id_).cublas;
+    CUBLAS_CALL_THROW(cublasSetStream(handle, nullptr));
+    return handle;
+  }
   inline cudnnHandle_t DefaultCudnnHandle() const {
     if (!runtime_config_->enable_cudnn || !onnxruntime::cuda::CudnnLibrary::Get().Available()) {
       return nullptr;
@@ -1141,9 +1148,7 @@ class CudaKernel : public OpKernel {
     }
 
     handle = DefaultCublasHandle();
-    if (stream != nullptr) {
-      CUBLAS_CALL_THROW(cublasSetStream(handle, stream));
-    }
+    CUBLAS_CALL_THROW(cublasSetStream(handle, stream));
     return handle;
   }
 
