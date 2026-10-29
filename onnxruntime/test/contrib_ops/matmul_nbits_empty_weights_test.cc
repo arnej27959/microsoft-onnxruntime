@@ -75,8 +75,10 @@ void RunEmptyCases(bool webgpu) {
       test.AddOptionalInputEdge<int32_t>();
     }
     if (c.bias) test.AddInput<T>("bias", {3}, {T(1.0f), T(-2.0f), T(3.0f)}, c.constant);
-    auto y_shape = c.a_shape;
-    y_shape.back() = 3;
+    // Built rather than copied and patched through back(): GCC 15 cannot prove a copied a_shape is
+    // non-empty and rejects the back() write with -Warray-bounds.
+    std::vector<int64_t> y_shape(c.a_shape.begin(), c.a_shape.end() - 1);
+    y_shape.push_back(3);
     std::vector<T> expected(TensorShape(y_shape).Size(), T(0.0f));
     const T bias[] = {T(1.0f), T(-2.0f), T(3.0f)};
     if (c.bias) {
