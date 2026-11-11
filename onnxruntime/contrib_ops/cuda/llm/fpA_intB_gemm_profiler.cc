@@ -224,6 +224,8 @@ std::vector<WeightOnlyGroupwiseQuantGemmPluginProfiler::Config> WeightOnlyGroupw
 std::optional<WeightOnlyGroupwiseQuantGemmPluginProfiler::Config>
 WeightOnlyGroupwiseQuantGemmPluginProfiler::getDeterministicConfig(int m) const {
   const auto configs = mRunner->getConfigs();
+  // mArch is the weight packing SM (80 on Ada); the stage limit depends on the arch the runner dispatches for.
+  const int runner_arch = mRunner->getArch();
   if (m < 16) {
     for (const auto& config : configs) {
       if (config.enableCudaKernel) {
@@ -233,7 +235,7 @@ WeightOnlyGroupwiseQuantGemmPluginProfiler::getDeterministicConfig(int m) const 
   }
   for (const auto& config : configs) {
     if (!config.enableCudaKernel && config.split_k_style == cutlass_extensions::SplitKStyle::NO_SPLIT_K &&
-        (mArch < 89 || config.stages != 2)) {
+        (runner_arch < 89 || config.stages != 2)) {
       return config;
     }
   }
