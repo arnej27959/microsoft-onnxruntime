@@ -143,7 +143,8 @@ TEST(MatMulNBitsWorkspace, DeterministicTacticsUseSupportedStages) {
     explicit TestProfiler(int arch) {
       mRunner = std::make_shared<Runner>();
       mRunner->setArch(arch);
-      setCudaKernelType({}, arch);
+      // MatMulNBits passes the weight packing SM, which is 80 for everything but native SM90.
+      setCudaKernelType({}, arch == 90 ? 90 : 80);
     }
   };
 

@@ -84,6 +84,9 @@ class CutlassFpAIntBGemmRunnerInterface {
   // Default: no-op (keep detected SM).
   virtual void setArch(int /*sm*/) {}
 
+  // SM architecture the runner dispatches kernels for.
+  virtual int getArch() const = 0;
+
   // Opts in to the native SM90 (Hopper TMA/WGMMA) mixed-GEMM kernel instead of the SM80
   // compatibility path. Only meaningful when the runner targets SM90 (setArch is left at 90) and
   // the weights were prepacked for the Hopper layout. Default: no-op (keep the SM80 kernel).
@@ -191,6 +194,8 @@ class CutlassFpAIntBGemmRunner : public virtual CutlassFpAIntBGemmRunnerInterfac
   std::vector<tkc::CutlassGemmConfig> getConfigs() const override;
 
   void setArch(int sm) override { sm_ = sm; }
+
+  int getArch() const override { return sm_; }
 
   void setUseSm90Native(bool use) override { use_sm90_native_ = use; }
 
